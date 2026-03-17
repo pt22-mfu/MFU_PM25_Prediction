@@ -5,19 +5,12 @@ import plotly.graph_objects as go
 import plotly.express as px
 import requests
 from datetime import datetime
-from sqlalchemy import create_engine
 
-# ==========================================
-# 1. PAGE CONFIGURATION & GREY/NAVY CSS
-# ==========================================
 st.set_page_config(page_title="MFU PM2.5 Analytics", layout="wide")
 
 st.markdown("""
     <style>
-    /* Grey App Background */
     .stApp { background-color: #e2e8f0; color: #000000; }
-    
-    /* Tab Text Colors (Black & Bold, Active is Navy Blue) */
     .stTabs [data-baseweb="tab-list"] button {
         color: #475569 !important; 
         font-size: 16px;
@@ -25,33 +18,25 @@ st.markdown("""
     }
     .stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
         color: #000000 !important; 
-        border-bottom-color: #1e3a8a !important; /* Navy Blue */
+        border-bottom-color: #1e3a8a !important;
     }
-    
-    /* Hero Card (Grey/White with Navy Blue Accent) */
     .hero-card {
         background-color: #ffffff;
         border-radius: 12px; padding: 25px; color: #000000;
         box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
-        border-left: 8px solid #1e3a8a; /* Navy Blue Accent */
+        border-left: 8px solid #1e3a8a;
         margin-bottom: 15px;
     }
-    
-    /* Info Cards */
     .info-card {
         background-color: #ffffff; border-radius: 12px; padding: 15px;
         box-shadow: 0 2px 4px rgba(0,0,0,0.1); text-align: center; color: #000000;
-        border-top: 4px solid #94a3b8; /* Light Grey Accent */
+        border-top: 4px solid #94a3b8;
     }
-
-    /* Side Panel (Grey Background, Black Text, Navy Accent) */
     .side-panel {
         background-color: #f8fafc; border-radius: 12px; padding: 25px;
         color: #000000; box-shadow: 0 4px 6px rgba(0,0,0,0.1); 
         border-top: 8px solid #1e3a8a; height: 100%;
     }
-    
-    /* Force Headers to Black and Bold */
     h1, h2, h3, h4, h5, h6 {
         color: #000000 !important;
         font-weight: 900 !important;
@@ -59,9 +44,6 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# ==========================================
-# 2. MODELS & DATA FETCHING
-# ==========================================
 API_KEY = "b5a0c28f2b79a51d156755c60818dcae"
 LAT, LON = "20.045", "99.895"
 
@@ -101,24 +83,23 @@ def fetch_weather_and_forecast():
     except Exception as e:
         return None, None
 
-def get_db_data():
+def get_historical_data():
     try:
-        engine = create_engine('mysql+mysqlconnector://root:@localhost/pm25_project')
-        return pd.read_sql("SELECT log_date, pm25, temp_avg, humidity_avg FROM pollution_logs ORDER BY log_date DESC LIMIT 100", engine)
-    except:
+        df = pd.read_csv("pm25_data.csv")
+        df['Date'] = pd.to_datetime(df['Date'])
+        df = df.sort_values(by='Date', ascending=False).head(100)
+        return df
+    except Exception as e:
+        st.error(f"Error loading CSV data: {e}")
         return pd.DataFrame()
 
 current_data, forecast_df = fetch_weather_and_forecast()
 
-# ==========================================
-# 3. DASHBOARD UI WITH 3 TABS
-# ==========================================
 st.title("🌬️ MFU Valley Air Quality System")
 st.markdown("<p style='color:#000000; font-size:18px;'>Developed by <b>The Outliers</b></p>", unsafe_allow_html=True)
 
 tab1, tab2, tab3 = st.tabs(["🚀 Live Forecast", "📊 Historical Trends", "🔬 Model Analysis"])
 
-# --- TAB 1: LIVE & FUTURE ---
 with tab1:
     if current_data and not forecast_df.empty:
         features = ['pressure_avg', 'temp_avg', 'humidity_avg', 'precipitation', 'sunshine', 'wind_direct', 'wind_speed', 'pm25_lag1']
@@ -127,19 +108,18 @@ with tab1:
         
         current_pred = forecast_df.iloc[0]['predicted_pm25']
         
-        # Color Logic for PM2.5
         if current_pred <= 25: 
             status_text = "Good"
-            pred_color = "#16a34a" # Green
+            pred_color = "#16a34a"
         elif current_pred <= 50: 
             status_text = "Moderate"
-            pred_color = "#d97706" # Yellow/Orange
+            pred_color = "#d97706"
         elif current_pred <= 100: 
             status_text = "Unhealthy"
-            pred_color = "#dc2626" # Red
+            pred_color = "#dc2626"
         else: 
             status_text = "Hazardous"
-            pred_color = "#9333ea" # Purple
+            pred_color = "#9333ea"
             
         col_left, col_right = st.columns([7, 3])
         
@@ -155,7 +135,7 @@ with tab1:
             st.markdown("<h5>📈 5-Day PM2.5 Forecast Trend</h5>", unsafe_allow_html=True)
             fig_trend = px.line(forecast_df, x='datetime', y='predicted_pm25',
                                 labels={"datetime": "Date & Time", "predicted_pm25": "PM2.5 (µg/m³)"})
-            fig_trend.update_traces(line=dict(color='#1e3a8a', width=3)) # Navy Blue Chart Line
+            fig_trend.update_traces(line=dict(color='#1e3a8a', width=3))
             fig_trend.update_layout(
                 height=320, margin=dict(l=60, r=20, t=10, b=40),
                 plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='black', weight='bold')
@@ -201,30 +181,30 @@ with tab1:
     else:
         st.info("Loading API Data...")
 
-# --- TAB 2: HISTORICAL TRENDS (FIXED MARGINS & LABELS) ---
 with tab2:
-    st.markdown("<h4 style='color:#000000;'>Historical Local Data (MySQL)</h4>", unsafe_allow_html=True)
-    df_history = get_db_data()
+    st.markdown("<h4 style='color:#000000;'>Historical Local Data (CSV)</h4>", unsafe_allow_html=True)
+    df_history = get_historical_data()
+    
     if not df_history.empty:
         col_t1, col_t2 = st.columns(2)
         with col_t1:
-            fig_hist = px.line(df_history, x="log_date", y="pm25", title="PM2.5 Over Time",
-                               labels={"log_date": "Date", "pm25": "PM2.5 (µg/m³)"})
+            fig_hist = px.line(df_history, x="Date", y="PM25", title="PM2.5 Over Time",
+                               labels={"Date": "Date", "PM25": "PM2.5 (µg/m³)"})
             fig_hist.update_traces(line=dict(color='#1e3a8a', width=2))
             fig_hist.update_layout(height=350, margin=dict(l=60, r=20, t=40, b=40), 
                                    plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='black', weight='bold'))
             st.plotly_chart(fig_hist, use_container_width=True, theme=None)
+            
         with col_t2:
-            fig_scatter = px.scatter(df_history, x="temp_avg", y="pm25", color="humidity_avg", 
+            fig_scatter = px.scatter(df_history, x="Temp_avg", y="PM25", color="Humidity_avg", 
                                      title="Temp vs PM2.5 Correlation",
-                                     labels={"temp_avg": "Temperature (°C)", "pm25": "PM2.5 (µg/m³)", "humidity_avg": "Humidity (%)"})
+                                     labels={"Temp_avg": "Temperature (°C)", "PM25": "PM2.5 (µg/m³)", "Humidity_avg": "Humidity (%)"})
             fig_scatter.update_layout(height=350, margin=dict(l=60, r=20, t=40, b=40), 
                                       plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(color='black', weight='bold'))
             st.plotly_chart(fig_scatter, use_container_width=True, theme=None)
     else:
-        st.warning("No data found in local MySQL database.")
+        st.warning("No data found in local CSV database.")
 
-# --- TAB 3: MODEL ANALYSIS ---
 with tab3:
     st.markdown("<br>", unsafe_allow_html=True) 
     
