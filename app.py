@@ -102,8 +102,16 @@ tab1, tab2, tab3 = st.tabs(["🚀 Live Forecast", "📊 Historical Trends", "�
 
 with tab1:
     if current_data and not forecast_df.empty:
-        features = ['pressure_avg', 'temp_avg', 'humidity_avg', 'precipitation', 'sunshine', 'wind_direct', 'wind_speed', 'pm25_lag1']
-        forecast_df['predicted_pm25'] = xgb_model.predict(forecast_df[features]).clip(min=0)
+        # ---- FIX APPLIED HERE ----
+        app_features = ['pressure_avg', 'temp_avg', 'humidity_avg', 'precipitation', 'sunshine', 'wind_direct', 'wind_speed', 'pm25_lag1']
+        model_features = ['Pressure_avg', 'Temp_avg', 'Humidity_avg', 'Precipitation', 'Sunshine', 'Wind_direct', 'Wind_speed', 'pm25_lag1']
+        
+        model_input = forecast_df[app_features].copy()
+        model_input.columns = model_features
+        
+        forecast_df['predicted_pm25'] = xgb_model.predict(model_input).clip(min=0)
+        # --------------------------
+        
         forecast_df['predicted_pm25'] = forecast_df['predicted_pm25'].rolling(2, min_periods=1).mean()
         
         current_pred = forecast_df.iloc[0]['predicted_pm25']
@@ -209,11 +217,16 @@ with tab3:
     st.markdown("<br>", unsafe_allow_html=True) 
     
     if current_data and not forecast_df.empty and rf_model is not None:
-        features = ['pressure_avg', 'temp_avg', 'humidity_avg', 'precipitation', 'sunshine', 'wind_direct', 'wind_speed', 'pm25_lag1']
-        current_input = forecast_df.iloc[[0]][features]
+        # ---- FIX APPLIED HERE ----
+        app_features = ['pressure_avg', 'temp_avg', 'humidity_avg', 'precipitation', 'sunshine', 'wind_direct', 'wind_speed', 'pm25_lag1']
+        model_features = ['Pressure_avg', 'Temp_avg', 'Humidity_avg', 'Precipitation', 'Sunshine', 'Wind_direct', 'Wind_speed', 'pm25_lag1']
+        
+        current_input = forecast_df.iloc[[0]][app_features].copy()
+        current_input.columns = model_features
         
         live_xgb = xgb_model.predict(current_input)[0]
         live_rf = rf_model.predict(current_input)[0]
+        # --------------------------
         
         st.markdown(f"""
         <div style="background: #ffffff; border-radius: 12px; padding: 25px; border-top: 6px solid #1e3a8a; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 25px;">
@@ -241,13 +254,13 @@ with tab3:
             <div style="margin-top: 20px; font-weight: bold; color:#000000;">
                 <p style="margin-bottom: 5px;">Accuracy (R²)</p>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">
-                    <span style="color: #1e3a8a; font-weight:900;">XGBoost: 86.76%</span>
-                    <span>RF: 86.24%</span>
+                    <span style="color: #1e3a8a; font-weight:900;">XGBoost: 86.52%</span>
+                    <span>RandomForest : 86.08%</span>
                 </div>
                 <p style="margin-bottom: 5px;">Error Rate (MAE)</p>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px;">
-                    <span style="color: #dc2626; font-weight:900;">XGBoost: 5.37</span>
-                    <span>RF: 5.45</span>
+                    <span style="color: #dc2626; font-weight:900;">XGBoost: 5.38</span>
+                    <span>RandomForest : 5.46</span>
                 </div>
             </div>
             <p style="font-weight: bold; font-size: 14px; line-height: 1.6; color:#000000;">
@@ -263,7 +276,7 @@ with tab3:
         
         colors = ['#1e3a8a', '#94a3b8']
         
-        df_r2 = pd.DataFrame({"Model": ["XGBoost", "Random Forest"], "Accuracy": [86.76, 86.24]})
+        df_r2 = pd.DataFrame({"Model": ["XGBoost", "Random Forest"], "Accuracy": [86.52, 86.08]})
         fig_r2 = px.bar(df_r2, x="Model", y="Accuracy", color="Model", text_auto='.2f', color_discrete_sequence=colors)
         fig_r2.update_layout(
             height=300, showlegend=False, margin=dict(l=0, r=0, t=40, b=0), yaxis_range=[80, 90],
@@ -271,7 +284,7 @@ with tab3:
         )
         c1.plotly_chart(fig_r2, use_container_width=True, theme=None)
         
-        df_mae = pd.DataFrame({"Model": ["XGBoost", "Random Forest"], "MAE": [5.37, 5.45]})
+        df_mae = pd.DataFrame({"Model": ["XGBoost", "Random Forest"], "MAE": [5.38, 5.46]})
         fig_mae = px.bar(df_mae, x="Model", y="MAE", color="Model", text_auto='.2f', color_discrete_sequence=colors)
         fig_mae.update_layout(
             height=300, showlegend=False, margin=dict(l=0, r=0, t=40, b=0),
