@@ -31,7 +31,6 @@ def train_advanced_model():
         return
 
     # 2. GENERATE TIME-LAG FEATURE (pm25_lag1) DYNAMICALLY
-    # PT ရဲ့ CSV ထဲမှာ မပါတဲ့အတွက် Code ကနေ အလိုအလျောက် ဖန်တီးပေးခြင်းဖြစ်ပါတယ်
     if 'Date' in df.columns:
         df['Date'] = pd.to_datetime(df['Date'])
         df = df.sort_values('Date').reset_index(drop=True)
