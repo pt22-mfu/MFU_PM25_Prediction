@@ -31,7 +31,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 }
 .glass-card:hover { transform: translateY(-3px); box-shadow: 0 15px 35px rgba(149, 157, 165, 0.12); }
 .hero-card { border-left: 6px solid #1e3a8a; }
-.side-panel { border-top: 6px solid #1e3a8a; height: 100%; }
+.side-panel { border-top: 6px solid #1e3a8a; height: 100%; display: flex; flex-direction: column; justify-content: space-between; }
 .info-card {
     background-color: #ffffff; border-radius: 12px; padding: 20px; text-align: center;
     box-shadow: 0 4px 12px rgba(149, 157, 165, 0.05); border: 1px solid #F1F5F9;
@@ -58,6 +58,7 @@ html, body, [class*="css"] { font-family: 'Inter', sans-serif; }
 .mc-svr { border-top: 5px solid #94a3b8; }
 .mc-mlr { border-top: 5px solid #cbd5e1; }
 .aqi-badge { flex:1; padding: 12px; border-radius: 10px; font-weight: 700; text-align: center; }
+.plotly-tooltip { font-family: 'Inter', sans-serif !important; border-radius: 8px !important; box-shadow: 0 4px 12px rgba(0,0,0,0.1) !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -162,26 +163,31 @@ with tab1:
             
             st.markdown("<h4 style='margin-top:20px; margin-bottom:10px; color:#1E293B;'>📈 5-Day PM2.5 Forecast Trend</h4>", unsafe_allow_html=True)
             fig_trend = px.line(forecast_df, x='datetime', y='predicted_pm25', labels={"datetime": "", "predicted_pm25": "PM2.5 (µg/m³)"})
-            fig_trend.update_traces(line=dict(color='#1e3a8a', width=4), mode='lines+markers', marker=dict(size=6, color='#1e3a8a'))
-            fig_trend.update_layout(height=340, margin=dict(l=40, r=20, t=10, b=40), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter", color='#334155', size=13))
+            fig_trend.update_traces(
+                line=dict(color='#1e3a8a', width=4), 
+                mode='lines+markers', 
+                marker=dict(size=6, color='#1e3a8a'),
+                hovertemplate="<b>Date:</b> %{x|%d %b %Y, %H:%M}<br><b>Predicted PM2.5:</b> %{y:.1f} µg/m³<extra></extra>"
+            )
+            fig_trend.update_layout(height=340, margin=dict(l=40, r=20, t=10, b=40), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter", color='#334155', size=13), hoverlabel=dict(bgcolor="white", font_size=13, font_family="Inter"))
             fig_trend.add_hline(y=50, line_dash="dash", line_color="#dc2626", annotation_text="Danger Limit (50)", annotation_font_color="#dc2626")
             fig_trend.update_xaxes(showgrid=False)
-            fig_trend.update_yaxes(showgrid=True, gridcolor='#CBD5E1', zeroline=False)
+            fig_trend.update_yaxes(showgrid=True, gridcolor='#94A3B8', gridwidth=2, zeroline=False)
             st.plotly_chart(fig_trend, use_container_width=True, theme=None)
             
             c1, c2, c3 = st.columns(3)
-            c1.markdown(f'<div class="info-card"><span style="font-size:14px; font-weight:700; color:#475569; text-transform:uppercase;">Avg Future Temp</span><br><span style="font-size:28px; color:#1e3a8a; font-weight:900;">{forecast_df["temp_avg"].mean():.1f}°C</span></div>', unsafe_allow_html=True)
-            c2.markdown(f'<div class="info-card"><span style="font-size:14px; font-weight:700; color:#475569; text-transform:uppercase;">Avg Future Wind</span><br><span style="font-size:28px; color:#1e3a8a; font-weight:900;">{forecast_df["wind_speed"].mean():.1f} <span style="font-size:16px;">m/s</span></span></div>', unsafe_allow_html=True)
-            c3.markdown(f'<div class="info-card"><span style="font-size:14px; font-weight:700; color:#475569; text-transform:uppercase;">Max Predicted PM2.5</span><br><span style="font-size:28px; color:#dc2626; font-weight:900;">{forecast_df["predicted_pm25"].max():.1f}</span></div>', unsafe_allow_html=True)
+            c1.markdown(f'<div class="info-card"><span style="font-size:15px; font-weight:800; color:#1E293B; text-transform:uppercase; letter-spacing:0.5px;">Avg Future Temp</span><br><span style="font-size:32px; color:#1e3a8a; font-weight:900;">{forecast_df["temp_avg"].mean():.1f}°C</span></div>', unsafe_allow_html=True)
+            c2.markdown(f'<div class="info-card"><span style="font-size:15px; font-weight:800; color:#1E293B; text-transform:uppercase; letter-spacing:0.5px;">Avg Future Wind</span><br><span style="font-size:32px; color:#1e3a8a; font-weight:900;">{forecast_df["wind_speed"].mean():.1f} <span style="font-size:18px;">m/s</span></span></div>', unsafe_allow_html=True)
+            c3.markdown(f'<div class="info-card"><span style="font-size:15px; font-weight:800; color:#1E293B; text-transform:uppercase; letter-spacing:0.5px;">Max Predicted PM2.5</span><br><span style="font-size:32px; color:#dc2626; font-weight:900;">{forecast_df["predicted_pm25"].max():.1f}</span></div>', unsafe_allow_html=True)
 
             st.markdown("""
 <div style="margin-top: 25px;">
 <h5 style="margin-bottom:12px; color:#1E293B; font-weight:800;">📊 PM2.5 Level Guide (µg/m³)</h5>
 <div style="display: flex; gap: 15px; text-align: center; font-size: 14px;">
-<div class="aqi-badge" style="background-color:#F0FDF4; border: 1px solid #BBF7D0; color:#166534;">0 - 25<br><span style="font-size:16px;">Good</span></div>
-<div class="aqi-badge" style="background-color:#FEFCE8; border: 1px solid #FEF08A; color:#854D0E;">26 - 50<br><span style="font-size:16px;">Moderate</span></div>
-<div class="aqi-badge" style="background-color:#FEF2F2; border: 1px solid #FECACA; color:#991B1B;">51 - 100<br><span style="font-size:16px;">Unhealthy</span></div>
-<div class="aqi-badge" style="background-color:#FAF5FF; border: 1px solid #E9D5FF; color:#6B21A8;">100+<br><span style="font-size:16px;">Hazardous</span></div>
+<div class="aqi-badge" style="background-color:#F0FDF4; border: 2px solid #86EFAC; color:#14532D;">0 - 25<br><span style="font-size:16px; font-weight:900;">Good</span></div>
+<div class="aqi-badge" style="background-color:#FEFCE8; border: 2px solid #FDE047; color:#713F12;">26 - 50<br><span style="font-size:16px; font-weight:900;">Moderate</span></div>
+<div class="aqi-badge" style="background-color:#FEF2F2; border: 2px solid #FCA5A5; color:#7F1D1D;">51 - 100<br><span style="font-size:16px; font-weight:900;">Unhealthy</span></div>
+<div class="aqi-badge" style="background-color:#FAF5FF; border: 2px solid #D8B4FE; color:#581C87;">100+<br><span style="font-size:16px; font-weight:900;">Hazardous</span></div>
 </div>
 </div>
 """, unsafe_allow_html=True)
@@ -192,17 +198,22 @@ with tab1:
 
             st.markdown(f"""
 <div class="glass-card side-panel">
+<div>
 <p style="text-align:center; color:#64748B; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-bottom:0; font-weight:700;">🕒 Last Updated: {current_data['fetch_time']}</p>
 <h1 style="text-align:center; margin-top:5px; margin-bottom:0; font-size:54px; font-weight:900; color:#1e3a8a !important;">{current_data['temp']}°C</h1>
 <p style="text-align:center; font-weight:600; font-size:16px; margin-top:5px; color:#334155;">{current_data['desc']}</p>
-
 <div style="background-color:#F8FAFC; border-radius:12px; padding:15px; display:flex; justify-content:space-around; margin: 25px 0; font-weight:700; color:#1E293B; font-size:14px; border: 1px solid #E2E8F0;">
 <span>💨 {current_data['wind_speed']} m/s</span>
 <span>💧 {current_data['humidity']}%</span>
 </div>
-
 <h4 style="margin-bottom:15px; border-top:2px solid #E2E8F0; padding-top:15px; color:#1E293B; font-weight:800;">Forecast Summary</h4>
 {forecast_html}
+</div>
+<div style="margin-top: 25px;">
+<a href="https://website01.mch.mfu.ac.th/mch-index.html" target="_blank" style="display: block; width: 100%; background-color: #FEF2F2; color: #dc2626; padding: 15px 0; border: 2px solid #FECACA; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 800; font-size: 15px; transition: transform 0.2s ease;">
+🏥 MFU Medical Center
+</a>
+</div>
 </div>
 """, unsafe_allow_html=True)
     else: st.info("Loading API Data...")
@@ -215,18 +226,24 @@ with tab2:
         with col_t1:
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             fig_hist = px.line(df_history, x="Date", y="PM25", title="PM2.5 Over Time", labels={"Date": "Date", "PM25": "PM2.5 (µg/m³)"})
-            fig_hist.update_traces(line=dict(color='#1e3a8a', width=3))
-            fig_hist.update_layout(height=380, margin=dict(l=40, r=20, t=50, b=40), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter", color='#334155', size=13), title_font=dict(size=18, color='#1E293B', family="Inter"))
+            fig_hist.update_traces(
+                line=dict(color='#1e3a8a', width=3),
+                hovertemplate="<b>Date:</b> %{x|%Y-%m-%d}<br><b>PM2.5:</b> %{y:.1f} µg/m³<extra></extra>"
+            )
+            fig_hist.update_layout(height=380, margin=dict(l=40, r=20, t=50, b=40), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter", color='#334155', size=13), title_font=dict(size=18, color='#1E293B', family="Inter"), hoverlabel=dict(bgcolor="white", font_size=13, font_family="Inter"))
             fig_hist.update_xaxes(showgrid=False)
-            fig_hist.update_yaxes(showgrid=True, gridcolor='#CBD5E1')
+            fig_hist.update_yaxes(showgrid=True, gridcolor='#94A3B8', gridwidth=2)
             st.plotly_chart(fig_hist, use_container_width=True, theme=None)
             st.markdown('</div>', unsafe_allow_html=True)
         with col_t2:
             st.markdown('<div class="glass-card">', unsafe_allow_html=True)
             fig_scatter = px.scatter(df_history, x="Temp_avg", y="PM25", color="Humidity_avg", title="Temp vs PM2.5 Correlation", color_continuous_scale="Blues", labels={"Temp_avg": "Temperature (°C)", "PM25": "PM2.5 (µg/m³)", "Humidity_avg": "Humidity (%)"})
-            fig_scatter.update_layout(height=380, margin=dict(l=40, r=20, t=50, b=40), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter", color='#334155', size=13), title_font=dict(size=18, color='#1E293B', family="Inter"))
-            fig_scatter.update_xaxes(showgrid=True, gridcolor='#CBD5E1')
-            fig_scatter.update_yaxes(showgrid=True, gridcolor='#CBD5E1')
+            fig_scatter.update_traces(
+                hovertemplate="<b>Temp:</b> %{x:.1f}°C<br><b>PM2.5:</b> %{y:.1f} µg/m³<br><b>Humidity:</b> %{marker.color:.1f}%<extra></extra>"
+            )
+            fig_scatter.update_layout(height=380, margin=dict(l=40, r=20, t=50, b=40), plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter", color='#334155', size=13), title_font=dict(size=18, color='#1E293B', family="Inter"), hoverlabel=dict(bgcolor="white", font_size=13, font_family="Inter"))
+            fig_scatter.update_xaxes(showgrid=True, gridcolor='#94A3B8', gridwidth=2)
+            fig_scatter.update_yaxes(showgrid=True, gridcolor='#94A3B8', gridwidth=2)
             st.plotly_chart(fig_scatter, use_container_width=True, theme=None)
             st.markdown('</div>', unsafe_allow_html=True)
     else: st.warning("No data found in local CSV database.")
@@ -326,13 +343,30 @@ By testing Linear Regression (51%) and SVR (68%) using strictly weather data, we
         c1, c2 = st.columns(2); colors = ['#1e3a8a', '#475569', '#64748b', '#cbd5e1']
         df_r2 = pd.DataFrame({"Model": ["XGBoost", "Random Forest", "SVR", "MLR"], "Accuracy": [86.52, 86.08, 68.97, 51.95]})
         fig_r2 = px.bar(df_r2, x="Model", y="Accuracy", color="Model", text_auto='.2f', color_discrete_sequence=colors)
-        fig_r2.update_layout(height=380, showlegend=False, margin=dict(l=20, r=20, t=50, b=0), yaxis_range=[40, 90], title="Accuracy Comparison", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter", color='#334155', size=13), title_font=dict(size=16, color='#1E293B', family="Inter", weight="bold"))
-        fig_r2.update_yaxes(showgrid=True, gridcolor='#CBD5E1')
+        fig_r2.update_traces(hovertemplate="<b>Model:</b> %{x}<br><b>Accuracy:</b> %{y:.2f}%<extra></extra>")
+        fig_r2.update_layout(height=380, showlegend=False, margin=dict(l=20, r=20, t=50, b=0), yaxis_range=[40, 90], title="Accuracy Comparison", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter", color='#334155', size=13), title_font=dict(size=16, color='#1E293B', family="Inter", weight="bold"), hoverlabel=dict(bgcolor="white", font_size=13, font_family="Inter"))
+        fig_r2.update_yaxes(showgrid=True, gridcolor='#94A3B8', gridwidth=2)
         c1.plotly_chart(fig_r2, use_container_width=True, theme=None)
         
         df_mae = pd.DataFrame({"Model": ["XGBoost", "Random Forest", "SVR", "MLR"], "MAE": [5.38, 5.46, 7.94, 10.98]})
         fig_mae = px.bar(df_mae, x="Model", y="MAE", color="Model", text_auto='.2f', color_discrete_sequence=colors)
-        fig_mae.update_layout(height=380, showlegend=False, margin=dict(l=20, r=20, t=50, b=0), title="Error Rate (Lower is Better)", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter", color='#334155', size=13), title_font=dict(size=16, color='#1E293B', family="Inter", weight="bold"))
-        fig_mae.update_yaxes(showgrid=True, gridcolor='#CBD5E1')
+        fig_mae.update_traces(hovertemplate="<b>Model:</b> %{x}<br><b>MAE:</b> %{y:.2f}<extra></extra>")
+        fig_mae.update_layout(height=380, showlegend=False, margin=dict(l=20, r=20, t=50, b=0), title="Error Rate (Lower is Better)", plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)', font=dict(family="Inter", color='#334155', size=13), title_font=dict(size=16, color='#1E293B', family="Inter", weight="bold"), hoverlabel=dict(bgcolor="white", font_size=13, font_family="Inter"))
+        fig_mae.update_yaxes(showgrid=True, gridcolor='#94A3B8', gridwidth=2)
         c2.plotly_chart(fig_mae, use_container_width=True, theme=None)
         st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown("""
+<div style="margin-top: 50px; padding: 30px 0 20px 0; border-top: 2px solid #E2E8F0; text-align: center;">
+<div style="margin-bottom: 25px;">
+<a href="mailto:6631501189@lamduan.mfu.ac.th" style="display: inline-block; background-color: #F8FAFC; border: 2px solid #E2E8F0; color: #1e3a8a; padding: 12px 35px; border-radius: 50px; text-decoration: none; font-weight: 800; font-size: 15px; transition: transform 0.2s ease; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+✉️ Contact Us
+</a>
+</div>
+<p style="margin: 0; font-size: 16px; color: #475569; font-weight: 600; letter-spacing: 0.5px;">
+<span style="color:#1e3a8a; font-weight:900;">The Outliers</span> (CPE Senior Project) 
+&nbsp;&nbsp;|&nbsp;&nbsp; 
+<span style="font-weight:900; color:#1E293B;">Advisor:</span> Aj. Khwunta Kirimasthong
+</p>
+</div>
+""", unsafe_allow_html=True)
