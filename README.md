@@ -3,7 +3,7 @@
 **Advisor:** Aj. Khwunta Kirimasthong
 
 ## 📌 Project Overview
-This project is part of the **Computer Engineering Pre-project** course. It aims to provide high-accuracy, real-time PM2.5 forecasting specifically for the **Mae Fah Luang University (MFU) Valley** area using Machine Learning.
+This project is part of the **Undergraduated Student Senior Project in Computer Engineering Program.** course. It aims to provide high-accuracy, real-time PM2.5 forecasting specifically for the **Mae Fah Luang University (MFU) Valley** area using Machine Learning.
 
 ## 🛠️ Tech Stack
 * **Language:** Python 3.10+
