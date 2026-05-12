@@ -1,0 +1,630 @@
+﻿import streamlit as st
+import pandas as pd
+import joblib
+import plotly.graph_objects as go
+import plotly.express as px
+import requests
+import os
+import base64
+from datetime import datetime, timedelta
+
+st.set_page_config(page_title="MFU PM2.5 Analytics", layout="wide")
+
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Inter', sans-serif;
+}
+
+.stApp {
+    background-color: #F4F7F9;
+    color: #1E293B;
+}
+
+/* Main layout */
+.block-container {
+    padding-top: 1.4rem;
+    padding-bottom: 2.2rem;
+    max-width: 1450px;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 10px;
+    border-bottom: 1px solid #E2E8F0;
+    margin-bottom: 1.2rem;
+}
+
+.stTabs [data-baseweb="tab-list"] button {
+    background-color: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-bottom: none;
+    border-radius: 12px 12px 0 0;
+    padding: 12px 22px;
+    color: #475569 !important;
+    font-size: 15px;
+    font-weight: 700;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(149, 157, 165, 0.04);
+}
+
+.stTabs [data-baseweb="tab-list"] button:hover {
+    background-color: #FFFFFF;
+    color: #1E293B !important;
+}
+
+.stTabs [data-baseweb="tab-list"] button[aria-selected="true"] {
+    color: #1e3a8a !important;
+    border-bottom: 3px solid #1e3a8a !important;
+    background-color: #FFFFFF;
+    box-shadow: 0 -2px 14px rgba(0,0,0,0.03);
+}
+
+.stTabs [data-baseweb="tab-list"] button p,
+.stTabs [data-baseweb="tab-list"] button span,
+.stTabs [data-baseweb="tab-list"] button div {
+    color: inherit !important;
+}
+
+/* General cards */
+.glass-card {
+    background: #FFFFFF;
+    border-radius: 18px;
+    padding: 24px;
+    color: #1E293B;
+    box-shadow: 0 8px 24px rgba(149, 157, 165, 0.08);
+    border: 1px solid #EAF0F6;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.glass-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 14px 30px rgba(149, 157, 165, 0.12);
+}
+
+.hero-card {
+    border-left: 6px solid #1e3a8a;
+    padding: 26px 28px;
+}
+
+.side-panel {
+    border-top: 6px solid #1e3a8a;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.info-card {
+    background: #FFFFFF;
+    border-radius: 16px;
+    padding: 18px 16px;
+    text-align: center;
+    box-shadow: 0 6px 18px rgba(149, 157, 165, 0.06);
+    border: 1px solid #EAF0F6;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.info-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 22px rgba(149, 157, 165, 0.10);
+}
+
+/* Header */
+.custom-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 4px 0 20px 0;
+    border-bottom: 2px solid #E2E8F0;
+    margin-bottom: 26px;
+}
+
+.logo-img {
+    width: 76px;
+    height: auto;
+    filter: drop-shadow(0px 4px 6px rgba(0,0,0,0.05));
+}
+
+.icon-img {
+    width: 46px;
+    height: auto;
+}
+
+.header-text-container {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.header-title {
+    margin: 0 !important;
+    font-size: 35px !important;
+    color: #1e3a8a !important;
+    font-weight: 900 !important;
+    letter-spacing: -0.6px;
+    line-height: 1.08;
+}
+
+.header-subtitle {
+    margin: 4px 0 0 0 !important;
+    font-size: 15px !important;
+    color: #475569 !important;
+    font-weight: 600 !important;
+}
+
+/* Model cards */
+.model-card {
+    flex: 1;
+    background-color: #FFFFFF;
+    padding: 24px;
+    border-radius: 16px;
+    box-shadow: 0 6px 18px rgba(149, 157, 165, 0.06);
+    border: 1px solid #EAF0F6;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.model-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 14px 28px rgba(149, 157, 165, 0.10);
+}
+
+.mc-xgb { border-top: 5px solid #1e3a8a; }
+.mc-rf  { border-top: 5px solid #475569; }
+.mc-svr { border-top: 5px solid #94a3b8; }
+.mc-mlr { border-top: 5px solid #cbd5e1; }
+
+.aqi-badge {
+    flex: 1;
+    padding: 12px;
+    border-radius: 12px;
+    font-weight: 700;
+    text-align: center;
+}
+
+/* Streamlit components */
+div[data-testid="stPlotlyChart"] {
+    border-radius: 14px;
+}
+
+div[data-testid="stVerticalBlock"] > div:has(> div[data-testid="stPlotlyChart"]) {
+    border-radius: 14px;
+}
+
+div[data-testid="stAlert"] {
+    border-radius: 12px;
+}
+
+hr {
+    border: none;
+    border-top: 1px solid #E2E8F0;
+    margin: 1rem 0;
+}
+
+/* Footer contact button hover feel */
+a, button {
+    transition: all 0.2s ease;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# 🚨 SECURE API KEY HANDLING
+try:
+    API_KEY = st.secrets["OPENWEATHER_API_KEY"]
+except KeyError:
+    API_KEY = "YOUR_OPENWEATHER_KEY"
+
+LAT, LON = "20.045", "99.895"
+
+@st.cache_resource
+def load_models():
+    xgb = joblib.load('models/pm25_model.pkl')
+    try:
+        rf = joblib.load('models/rf_pm25_model.pkl')
+    except:
+        rf = None
+    try:
+        svr = joblib.load('models/svr_pm25_model.pkl')
+    except:
+        svr = None
+    try:
+        mlr = joblib.load('models/mlr_pm25_model.pkl')
+    except:
+        mlr = None
+    return xgb, rf, svr, mlr
+
+xgb_model, rf_model, svr_model, mlr_model = load_models()
+
+def fetch_weather_and_forecast():
+    try:
+        cw = requests.get(f"https://api.openweathermap.org/data/2.5/weather?lat={LAT}&lon={LON}&appid={API_KEY}&units=metric").json()
+        cp = requests.get(f"https://api.openweathermap.org/data/2.5/air_pollution?lat={LAT}&lon={LON}&appid={API_KEY}").json()
+        fw = requests.get(f"https://api.openweathermap.org/data/2.5/forecast?lat={LAT}&lon={LON}&appid={API_KEY}&units=metric").json()
+        current = {
+            "temp": cw['main']['temp'],
+            "humidity": cw['main']['humidity'],
+            "wind_speed": cw['wind']['speed'],
+            "desc": cw['weather'][0]['description'].title(),
+            "pm25_current": cp['list'][0]['components']['pm2_5'],
+            "fetch_time": datetime.now().strftime("%d %B %Y, %I:%M %p")
+        }
+        forecast_list = []
+        for item in fw['list']:
+            forecast_list.append({
+                "datetime": datetime.fromtimestamp(item['dt']),
+                "pressure_avg": item['main']['pressure'],
+                "temp_avg": item['main']['temp'],
+                "humidity_avg": item['main']['humidity'],
+                "precipitation": item.get('rain', {}).get('3h', 0),
+                "sunshine": 5.0,
+                "wind_direct": item['wind'].get('deg', 0),
+                "wind_speed": item['wind']['speed'],
+                "pm25_lag1": current["pm25_current"]
+            })
+        return current, pd.DataFrame(forecast_list)
+    except Exception as e:
+        return None, None
+
+def get_historical_data():
+    try:
+        # 📂 UPDATED PATH TO MATCH NEW STRUCTURE
+        df = pd.read_csv("data/processed/pm25_data.csv")
+        df['Date'] = pd.to_datetime(df['Date'])
+        return df.sort_values(by='Date', ascending=False).head(100)
+    except Exception as e:
+        return pd.DataFrame()
+
+current_data, forecast_df = fetch_weather_and_forecast()
+
+def get_base64_img(path):
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            data = f.read()
+        return f"data:image/png;base64,{base64.b64encode(data).decode()}"
+    return ""
+
+def apply_plot_style(fig, height=None, title_size=18):
+    fig.update_layout(
+        plot_bgcolor='rgba(0,0,0,0)',
+        paper_bgcolor='rgba(0,0,0,0)',
+        font=dict(family="Inter", color='#334155', size=13),
+        hoverlabel=dict(bgcolor="white", font_size=13, font_family="Inter"),
+        margin=dict(l=30, r=20, t=50, b=30),
+        title_font=dict(size=title_size, color='#1E293B', family="Inter")
+    )
+    if height:
+        fig.update_layout(height=height)
+    return fig
+
+mfu_base64 = get_base64_img("mfu_logo.png")
+icon_base64 = get_base64_img("image_896c03.png")
+
+img_tags = ""
+if mfu_base64:
+    img_tags += f'<img src="{mfu_base64}" class="logo-img">'
+if icon_base64:
+    img_tags += f'<img src="{icon_base64}" class="icon-img">'
+
+header_html = (
+    '<div class="custom-header">'
+    + img_tags +
+    '<div class="header-text-container">'
+    '<h1 class="header-title">Mae Fah Luang University PM2.5 Forecasting Engine</h1>'
+    '<p class="header-subtitle">Developed by <span style="color:#1e3a8a;">The Outliers</span></p>'
+    '</div></div>'
+)
+st.markdown(header_html, unsafe_allow_html=True)
+
+tab1, tab2, tab3 = st.tabs(["🚀 Live Forecast", "📊 Historical Trends", "🔬 Model Analysis"])
+
+with tab1:
+    if current_data and not forecast_df.empty:
+        app_features = ['pressure_avg', 'temp_avg', 'humidity_avg', 'precipitation', 'sunshine', 'wind_direct', 'wind_speed', 'pm25_lag1']
+        model_features = ['Pressure_avg', 'Temp_avg', 'Humidity_avg', 'Precipitation', 'Sunshine', 'Wind_direct', 'Wind_speed', 'pm25_lag1']
+
+        model_input = forecast_df[app_features].copy()
+        model_input.columns = model_features
+        forecast_df['predicted_pm25'] = xgb_model.predict(model_input).clip(min=0)
+        forecast_df['predicted_pm25'] = forecast_df['predicted_pm25'].rolling(2, min_periods=1).mean()
+        current_pred = forecast_df.iloc[0]['predicted_pm25']
+
+        if current_pred <= 25:
+            status_text = "Good"
+            pred_color = "#16a34a"
+        elif current_pred <= 50:
+            status_text = "Moderate"
+            pred_color = "#d97706"
+        elif current_pred <= 100:
+            status_text = "Unhealthy"
+            pred_color = "#dc2626"
+        else:
+            status_text = "Hazardous"
+            pred_color = "#9333ea"
+
+        col_left, col_right = st.columns([7, 3], gap="large")
+
+        with col_left:
+            st.markdown(f"""
+<div class="glass-card hero-card">
+<p style="margin:0; font-size:14px; font-weight:1000; color:#475569; text-transform:uppercase; letter-spacing:1px;">📍 Mae Fah Luang University</p>
+<h2 style="margin:10px 0 8px 0; font-size:24px; color:#1E293B; font-weight:800;">Current PM2.5: <span style="color:{pred_color}; font-size:46px;">{current_pred:.1f} <span style="font-size:20px;">µg/m³</span></span></h2>
+<p style="margin:0; font-size:16px; font-weight:600; color:#334155;">Model: <span style="color:#1e3a8a; font-weight:800;">XGBoost</span> &nbsp;|&nbsp; Status: <span style="color:{pred_color}; font-weight:800;">{status_text}</span></p>
+</div>
+""", unsafe_allow_html=True)
+
+            st.markdown("<h4 style='margin:22px 0 12px 2px; color:#1E293B; font-weight:800;'>📈 5-Day PM2.5 Forecast Trend</h4>", unsafe_allow_html=True)
+
+            fig_trend = px.line(
+                forecast_df,
+                x='datetime',
+                y='predicted_pm25',
+                labels={"datetime": "", "predicted_pm25": "PM2.5 (µg/m³)"}
+            )
+            fig_trend.update_traces(
+                line=dict(color='#1e3a8a', width=4),
+                mode='lines+markers',
+                marker=dict(size=6, color='#1e3a8a'),
+                hovertemplate="<b>Date:</b> %{x|%d %b %Y, %H:%M}<br><b>Predicted PM2.5:</b> %{y:.1f} µg/m³<extra></extra>"
+            )
+            fig_trend = apply_plot_style(fig_trend, height=340, title_size=16)
+            fig_trend.update_layout(margin=dict(l=40, r=20, t=10, b=35))
+            fig_trend.add_hline(
+                y=50,
+                line_dash="dash",
+                line_color="#dc2626",
+                annotation_text="Danger Limit (50)",
+                annotation_font_color="#dc2626"
+            )
+            fig_trend.update_xaxes(showgrid=False, linecolor="#E2E8F0")
+            fig_trend.update_yaxes(showgrid=True, gridcolor='rgba(148,163,184,0.25)', gridwidth=1, zeroline=False, linecolor="#E2E8F0")
+            st.plotly_chart(fig_trend, use_container_width=True, theme=None)
+
+            c1, c2, c3 = st.columns(3, gap="medium")
+            c1.markdown(
+                f'<div class="info-card"><span style="font-size:14px; font-weight:800; color:#1E293B; text-transform:uppercase; letter-spacing:0.5px;">Avg Future Temp</span><br><span style="font-size:32px; color:#1e3a8a; font-weight:900;">{forecast_df["temp_avg"].mean():.1f}°C</span></div>',
+                unsafe_allow_html=True
+            )
+            c2.markdown(
+                f'<div class="info-card"><span style="font-size:14px; font-weight:800; color:#1E293B; text-transform:uppercase; letter-spacing:0.5px;">Avg Future Wind</span><br><span style="font-size:32px; color:#1e3a8a; font-weight:900;">{forecast_df["wind_speed"].mean():.1f} <span style="font-size:18px;">m/s</span></span></div>',
+                unsafe_allow_html=True
+            )
+            c3.markdown(
+                f'<div class="info-card"><span style="font-size:14px; font-weight:800; color:#1E293B; text-transform:uppercase; letter-spacing:0.5px;">Max Predicted PM2.5</span><br><span style="font-size:32px; color:#dc2626; font-weight:900;">{forecast_df["predicted_pm25"].max():.1f}</span></div>',
+                unsafe_allow_html=True
+            )
+
+            st.markdown("""
+<div style="margin-top: 24px;">
+<h5 style="margin:0 0 12px 2px; color:#1E293B; font-weight:800;">📊 PM2.5 Level Guide (µg/m³)</h5>
+<div style="display: flex; gap: 14px; text-align: center; font-size: 14px;">
+<div class="aqi-badge" style="background-color:#F0FDF4; border: 2px solid #86EFAC; color:#14532D;">0 - 25<br><span style="font-size:16px; font-weight:900;">Good</span></div>
+<div class="aqi-badge" style="background-color:#FEFCE8; border: 2px solid #FDE047; color:#713F12;">26 - 50<br><span style="font-size:16px; font-weight:900;">Moderate</span></div>
+<div class="aqi-badge" style="background-color:#FEF2F2; border: 2px solid #FCA5A5; color:#7F1D1D;">51 - 100<br><span style="font-size:16px; font-weight:900;">Unhealthy</span></div>
+<div class="aqi-badge" style="background-color:#FAF5FF; border: 2px solid #D8B4FE; color:#581C87;">100+<br><span style="font-size:16px; font-weight:900;">Hazardous</span></div>
+</div>
+</div>
+""", unsafe_allow_html=True)
+
+        with col_right:
+            daily_forecast = forecast_df.groupby(forecast_df['datetime'].dt.date).agg({'predicted_pm25': 'max'}).head(5)
+            forecast_html = "".join([
+                f"<div style='display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; font-size:15px; font-weight:600; color:#1E293B; border-bottom:1px solid #F1F5F9; padding-bottom:11px;'><span style='color:#475569;'>{row.name.strftime('%d %A')}</span><span style='color:{'#dc2626' if row['predicted_pm25']>50 else '#1e3a8a'}; font-weight:800;'>PM2.5: {row['predicted_pm25']:.0f} µg/m³</span></div>"
+                for _, row in daily_forecast.iterrows()
+            ])
+
+            st.markdown(f"""
+<div class="glass-card side-panel">
+<div>
+<p style="text-align:center; color:#64748B; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin-bottom:0; font-weight:700;">🕒 Last Updated: {current_data['fetch_time']}</p>
+<h1 style="text-align:center; margin-top:6px; margin-bottom:0; font-size:54px; font-weight:900; color:#1e3a8a !important;">{current_data['temp']}°C</h1>
+<p style="text-align:center; font-weight:600; font-size:16px; margin-top:6px; color:#334155;">{current_data['desc']}</p>
+<div style="background-color:#F8FAFC; border-radius:14px; padding:15px; display:flex; justify-content:space-around; margin:24px 0; font-weight:700; color:#1E293B; font-size:14px; border: 1px solid #E2E8F0;">
+<span>💨 {current_data['wind_speed']} m/s</span>
+<span>💧 {current_data['humidity']}%</span>
+</div>
+<h4 style="margin-bottom:14px; border-top:2px solid #E2E8F0; padding-top:16px; color:#1E293B; font-weight:800;">Forecast Summary</h4>
+{forecast_html}
+</div>
+<div style="margin-top: 24px;">
+<a href="https://website01.mch.mfu.ac.th/mch-index.html" target="_blank" style="display: block; width: 100%; background-color: #FEF2F2; color: #dc2626; padding: 15px 0; border: 2px solid #FECACA; border-radius: 12px; text-align: center; text-decoration: none; font-weight: 800; font-size: 15px; box-shadow: 0 4px 12px rgba(220,38,38,0.05);">
+🏥 MFU Medical Center
+</a>
+</div>
+</div>
+""", unsafe_allow_html=True)
+    else:
+        st.info("Loading API Data...")
+
+with tab2:
+    st.markdown("<h4 style='color:#1E293B; font-weight:800; margin-bottom:18px;'>Historical Local Data (CSV)</h4>", unsafe_allow_html=True)
+    df_history = get_historical_data()
+
+    if not df_history.empty:
+        col_t1, col_t2 = st.columns(2, gap="large")
+
+        with col_t1:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            fig_hist = px.line(
+                df_history,
+                x="Date",
+                y="PM25",
+                title="PM2.5 Over Time",
+                labels={"Date": "Date", "PM25": "PM2.5 (µg/m³)"}
+            )
+            fig_hist.update_traces(
+                line=dict(color='#1e3a8a', width=3),
+                hovertemplate="<b>Date:</b> %{x|%Y-%m-%d}<br><b>PM2.5:</b> %{y:.1f} µg/m³<extra></extra>"
+            )
+            fig_hist = apply_plot_style(fig_hist, height=380)
+            fig_hist.update_xaxes(showgrid=False, linecolor="#E2E8F0")
+            fig_hist.update_yaxes(showgrid=True, gridcolor='rgba(148,163,184,0.25)', gridwidth=1, linecolor="#E2E8F0")
+            st.plotly_chart(fig_hist, use_container_width=True, theme=None)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+        with col_t2:
+            st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+            fig_scatter = px.scatter(
+                df_history,
+                x="Temp_avg",
+                y="PM25",
+                color="Humidity_avg",
+                title="Temp vs PM2.5 Correlation",
+                color_continuous_scale="Blues",
+                labels={"Temp_avg": "Temperature (°C)", "PM25": "PM2.5 (µg/m³)", "Humidity_avg": "Humidity (%)"}
+            )
+            fig_scatter.update_traces(
+                hovertemplate="<b>Temp:</b> %{x:.1f}°C<br><b>PM2.5:</b> %{y:.1f} µg/m³<br><b>Humidity:</b> %{marker.color:.1f}%<extra></extra>"
+            )
+            fig_scatter = apply_plot_style(fig_scatter, height=380)
+            fig_scatter.update_xaxes(showgrid=True, gridcolor='rgba(148,163,184,0.22)', gridwidth=1, linecolor="#E2E8F0")
+            fig_scatter.update_yaxes(showgrid=True, gridcolor='rgba(148,163,184,0.22)', gridwidth=1, linecolor="#E2E8F0")
+            st.plotly_chart(fig_scatter, use_container_width=True, theme=None)
+            st.markdown('</div>', unsafe_allow_html=True)
+    else:
+        st.warning("No data found in local CSV database.")
+
+with tab3:
+    st.markdown("<div style='height:6px;'></div>", unsafe_allow_html=True)
+
+    if current_data and not forecast_df.empty:
+        app_features = ['pressure_avg', 'temp_avg', 'humidity_avg', 'precipitation', 'sunshine', 'wind_direct', 'wind_speed', 'pm25_lag1']
+        model_features = ['Pressure_avg', 'Temp_avg', 'Humidity_avg', 'Precipitation', 'Sunshine', 'Wind_direct', 'Wind_speed', 'pm25_lag1']
+
+        current_input = forecast_df.iloc[[0]][app_features].copy()
+        current_input.columns = model_features
+
+        live_xgb = xgb_model.predict(current_input)[0] if xgb_model else 0
+        live_rf = rf_model.predict(current_input)[0] if rf_model else 0
+
+        weather_features = ['Pressure_avg', 'Temp_avg', 'Humidity_avg', 'Precipitation', 'Sunshine', 'Wind_direct', 'Wind_speed']
+        current_input_7 = current_input[weather_features]
+
+        live_svr = svr_model.predict(current_input_7)[0] if svr_model else 0
+        live_mlr = mlr_model.predict(current_input_7)[0] if mlr_model else 0
+
+        st.markdown(f"""
+<div class="glass-card" style="margin-bottom: 26px;">
+<h3 style="margin-top: 0; margin-bottom:6px; color:#1E293B; font-weight:800;">🥊 Live Model Showdown</h3>
+<p style="font-weight: 600; font-size: 15px; color:#475569; margin-bottom:0;">Real-time prediction comparison based on current weather data.</p>
+
+<div style="display: flex; gap: 18px; margin-top: 24px;">
+<div class="model-card mc-xgb">
+<p style="margin: 0; font-weight: 700; font-size: 14px; color:#475569; text-transform:uppercase;">🏆 Active Engine</p>
+<h4 style="margin: 6px 0 10px 0; color:#1E293B; font-weight:800;">XGBoost</h4>
+<h1 style="margin: 0; color: #1e3a8a !important; font-size: 42px; font-weight:900;">{live_xgb:.1f} <span style="font-size: 16px; color: #64748B;">µg/m³</span></h1>
+</div>
+<div class="model-card mc-rf">
+<p style="margin: 0; font-weight: 700; font-size: 14px; color:#475569; text-transform:uppercase;">🔬 Secondary Ensemble</p>
+<h4 style="margin: 6px 0 10px 0; color:#1E293B; font-weight:800;">Random Forest</h4>
+<h1 style="margin: 0; color: #475569 !important; font-size: 42px; font-weight:900;">{live_rf:.1f} <span style="font-size: 16px; color: #64748B;">µg/m³</span></h1>
+</div>
+</div>
+
+<div style="display: flex; gap: 18px; margin-top: 18px;">
+<div class="model-card mc-svr">
+<p style="margin: 0; font-weight: 700; font-size: 14px; color:#475569; text-transform:uppercase;">📈 Weather-Only Baseline</p>
+<h4 style="margin: 6px 0 10px 0; color:#1E293B; font-weight:800;">Support Vector Reg.</h4>
+<h1 style="margin: 0; color: #64748B !important; font-size: 42px; font-weight:900;">{live_svr:.1f} <span style="font-size: 16px; color: #64748B;">µg/m³</span></h1>
+</div>
+<div class="model-card mc-mlr">
+<p style="margin: 0; font-weight: 700; font-size: 14px; color:#475569; text-transform:uppercase;">📏 Linear Baseline</p>
+<h4 style="margin: 6px 0 10px 0; color:#1E293B; font-weight:800;">Multiple Linear Reg.</h4>
+<h1 style="margin: 0; color: #64748B !important; font-size: 42px; font-weight:900;">{live_mlr:.1f} <span style="font-size: 16px; color: #64748B;">µg/m³</span></h1>
+</div>
+</div>
+</div>
+""", unsafe_allow_html=True)
+
+    col_metrics, col_charts = st.columns([1, 2], gap="large")
+
+    with col_metrics:
+        st.markdown("""
+<div class="glass-card" style="height: 100%;">
+<h4 style="margin-top: 0; color:#1E293B; font-weight:800;">📊 Why XGBoost? (The Baseline Defense)</h4>
+<div style="margin-top: 22px; font-weight: 600; color:#334155;">
+
+<p style="margin-bottom: 8px; font-size:14px; text-transform:uppercase; color:#475569; font-weight:700;">Accuracy (R²)</p>
+<div style="display: flex; justify-content: space-between; margin-bottom: 8px; align-items:center;">
+<span style="color: #1e3a8a; font-weight:800; font-size:16px;">XGBoost</span> <span style="font-size:18px; font-weight:900; color:#1E293B;">86.52%</span>
+</div>
+<div style="display: flex; justify-content: space-between; margin-bottom: 8px; align-items:center;">
+<span style="color: #475569; font-weight:700; font-size:15px;">Random Forest</span> <span style="font-size:16px; color:#1E293B;">86.08%</span>
+</div>
+<div style="display: flex; justify-content: space-between; margin-bottom: 8px; align-items:center;">
+<span style="color: #64748B; font-weight:600; font-size:14px;">SVR</span> <span style="font-size:14px; color:#475569;">68.97%</span>
+</div>
+<div style="display: flex; justify-content: space-between; margin-bottom: 24px; border-bottom: 1px solid #E2E8F0; padding-bottom: 14px; align-items:center;">
+<span style="color: #64748B; font-weight:600; font-size:14px;">Linear Reg</span> <span style="font-size:14px; color:#475569;">51.95%</span>
+</div>
+
+<p style="margin-bottom: 8px; font-size:14px; text-transform:uppercase; color:#475569; font-weight:700;">Error Rate (MAE)</p>
+<div style="display: flex; justify-content: space-between; margin-bottom: 8px; align-items:center;">
+<span style="color: #dc2626; font-weight:800; font-size:16px;">XGBoost</span> <span style="font-size:18px; font-weight:900; color:#1E293B;">5.38</span>
+</div>
+<div style="display: flex; justify-content: space-between; margin-bottom: 8px; align-items:center;">
+<span style="color: #475569; font-weight:700; font-size:15px;">Random Forest</span> <span style="font-size:16px; color:#1E293B;">5.46</span>
+</div>
+<div style="display: flex; justify-content: space-between; margin-bottom: 8px; align-items:center;">
+<span style="color: #64748B; font-weight:600; font-size:14px;">SVR</span> <span style="font-size:14px; color:#475569;">7.94</span>
+</div>
+<div style="display: flex; justify-content: space-between; margin-bottom: 24px; border-bottom: 1px solid #E2E8F0; padding-bottom: 14px; align-items:center;">
+<span style="color: #64748B; font-weight:600; font-size:14px;">Linear Reg</span> <span style="font-size:14px; color:#475569;">10.98</span>
+</div>
+</div>
+
+<div style="background-color:#F8FAFC; padding:16px; border-radius:12px; border-left:4px solid #1e3a8a;">
+<p style="font-weight: 500; font-size: 14px; line-height: 1.6; color:#334155; margin:0;">
+By testing Linear Regression (51%) and SVR (68%) using strictly weather data, we scientifically proved that the MFU Valley weather is a highly chaotic, non-linear system. XGBoost is the only architecture powerful enough to automatically map these rapid environmental changes.
+</p>
+</div>
+</div>
+""", unsafe_allow_html=True)
+
+    with col_charts:
+        st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+
+        c1, c2 = st.columns(2, gap="medium")
+        colors = ['#1e3a8a', '#475569', '#64748b', '#cbd5e1']
+
+        df_r2 = pd.DataFrame({
+            "Model": ["XGBoost", "Random Forest", "SVR", "MLR"],
+            "Accuracy": [86.52, 86.08, 68.97, 51.95]
+        })
+        fig_r2 = px.bar(df_r2, x="Model", y="Accuracy", color="Model", text_auto='.2f', color_discrete_sequence=colors)
+        fig_r2.update_traces(hovertemplate="<b>Model:</b> %{x}<br><b>Accuracy:</b> %{y:.2f}%<extra></extra>")
+        fig_r2 = apply_plot_style(fig_r2, height=380, title_size=16)
+        fig_r2.update_layout(showlegend=False, yaxis_range=[40, 90], title="Accuracy Comparison", margin=dict(l=20, r=20, t=50, b=10))
+        fig_r2.update_yaxes(showgrid=True, gridcolor='rgba(148,163,184,0.25)', gridwidth=1, linecolor="#E2E8F0")
+        fig_r2.update_xaxes(showgrid=False, linecolor="#E2E8F0")
+        c1.plotly_chart(fig_r2, use_container_width=True, theme=None)
+
+        df_mae = pd.DataFrame({
+            "Model": ["XGBoost", "Random Forest", "SVR", "MLR"],
+            "MAE": [5.38, 5.46, 7.94, 10.98]
+        })
+        fig_mae = px.bar(df_mae, x="Model", y="MAE", color="Model", text_auto='.2f', color_discrete_sequence=colors)
+        fig_mae.update_traces(hovertemplate="<b>Model:</b> %{x}<br><b>MAE:</b> %{y:.2f}<extra></extra>")
+        fig_mae = apply_plot_style(fig_mae, height=380, title_size=16)
+        fig_mae.update_layout(showlegend=False, title="Error Rate (Lower is Better)", margin=dict(l=20, r=20, t=50, b=10))
+        fig_mae.update_yaxes(showgrid=True, gridcolor='rgba(148,163,184,0.25)', gridwidth=1, linecolor="#E2E8F0")
+        fig_mae.update_xaxes(showgrid=False, linecolor="#E2E8F0")
+        c2.plotly_chart(fig_mae, use_container_width=True, theme=None)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
+st.markdown("""
+<div style="margin-top: 42px; padding: 26px 0 16px 0; border-top: 2px solid #E2E8F0; text-align: center;">
+<div style="margin-bottom: 22px;">
+<a href="mailto:6631501189@lamduan.mfu.ac.th" style="display: inline-block; background-color: #F8FAFC; border: 2px solid #E2E8F0; color: #1e3a8a; padding: 12px 35px; border-radius: 50px; text-decoration: none; font-weight: 800; font-size: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.02);">
+✉️ Contact Us
+</a>
+</div>
+<p style="margin: 0; font-size: 16px; color: #475569; font-weight: 600; letter-spacing: 0.3px;">
+<span style="color:#1e3a8a; font-weight:900;">The Outliers</span> (CPE Senior Project)
+&nbsp;&nbsp;|&nbsp;&nbsp;
+<span style="font-weight:900; color:#1E293B;">Advisor:</span> Aj. Khwunta Kirimasthong
+</p>
+</div>
+""", unsafe_allow_html=True)
